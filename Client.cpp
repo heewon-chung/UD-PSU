@@ -11,7 +11,9 @@
 // BF_key_, label_key, shuffle_key.
 // It fetches the hashtable parameters, x-points, and field description from the server.
 // It sets a moduli for blinding bloom filters and sets the bloom filter parameters.
-Client::Client(Server*server, bigint *elements, int el_size){
+Client::Client(Server* server, 
+			   bigint* elements, 
+			   int el_size) {
 
   	key_size = AES::DEFAULT_KEYLENGTH;
 	Random rd_;
@@ -73,8 +75,8 @@ Client::Client(Server*server, bigint *elements, int el_size){
 //**********************************************************************
 void Client::free_client(){
 	
-  mpz_clear(pr_moduli);
-  xPoint_map.clear();
+	mpz_clear(pr_moduli);
+	xPoint_map.clear();
 }
 //**********************************************************************
 //Function description: blindes an array of shuffled bloom filters.
@@ -94,24 +96,24 @@ bigint** Client::blind_shuffled_bl_(bigint** s_bl, int table_size, byte* key, by
   	unsigned char der_key_0[key_size]; // convert the ciphertext into a der_key
 	for(int i = 0;i < table_size; i++){
 		e.SetKeyWithIV(key, key_size, iv);
-    		cipher.clear();
-    		res_[i] = (mpz_t*)malloc(num_of_PRNs_ * sizeof(mpz_t));
+		cipher.clear();
+		res_[i] = (mpz_t*)malloc(num_of_PRNs_ * sizeof(mpz_t));
 		StringSource s(to_string(i), true, new StreamTransformationFilter(e, new StringSink(cipher)));
-    		memset(der_key_0, 0x00, key_size + 1);
+		memset(der_key_0, 0x00, key_size + 1);
 		strcpy((char*)der_key_0,cipher.c_str());
 		e.SetKeyWithIV(der_key_0, key_size, iv);	// set key an iv.
 		for (int j = 0;j < num_of_PRNs_; j++){
 			cipher.clear();
-      			temp.clear();
-      			StringSource sss(to_string(j), true,new StreamTransformationFilter(e, new StringSink(cipher)));
+			temp.clear();
+			StringSource sss(to_string(j), true,new StreamTransformationFilter(e, new StringSink(cipher)));
 		  	temp = cipher.substr (0, byte_);// truncate the ciphertext
 			memset(prn_, 0x00, byte_ + 1);
 		 	strcpy((char*)prn_, temp.c_str());
 		  	mpz_init(res_[i][j]);
 		  	mpz_import(res_[i][j], byte_, 1, sizeof(prn_[0]), 0, 0, prn_);
 			mpz_mod(res_[i][j], res_[i][j], pubmoduli_);
-      			mpz_add(res_[i][j], res_[i][j], s_bl[i][j]);
-      			mpz_mod(res_[i][j], res_[i][j], pubmoduli_);
+			mpz_add(res_[i][j], res_[i][j], s_bl[i][j]);
+			mpz_mod(res_[i][j], res_[i][j], pubmoduli_);
 		}
 	}
 	temp.clear();
@@ -126,7 +128,7 @@ string Client::update(bigint elem, string updt, bigint & label, string id){
 	ZZ p = to_ZZ(tmp_mod);
 	ZZ_p::init(p);
 	ZZ_pX P;
-  	bool exits = false;
+	bool exits = false;
 	string status;
   	bigint *un_bl;
 	un_bl = (mpz_t*)malloc(xpoint_size * sizeof(mpz_t));
@@ -147,17 +149,19 @@ string Client::update(bigint elem, string updt, bigint & label, string id){
 	mpz_init_set(label, temp_label[0]);
 	bin = serv->get_client_bin(label, id, bf, tmpx, exits, "update"); // retrieves bin: o_j, from the server and the corresponding bf.
 	if(!exits){
-		cout<<"\nIn update: the label does not exists!"<< endl;
+		std::cout << "\nIn update: the label does not exists!"<< endl;
 		return "0";
 	}
+	
 	unblinded_bf = unblind_BF_(bf, j, BF_key_, BF_iv, pr_moduli);
-  	Polynomial poly;
-  	un_bl = poly.unblind_poly_(bin, xpoint_size, seed_, iv, key_size, j, counter[j], pub_moduli_bitsize / 8, pubmoduli);//unblind bin
- 	counter[j] += 1;
+	Polynomial poly;
+	un_bl = poly.unblind_poly_(bin, xpoint_size, seed_, iv, key_size, j, counter[j], pub_moduli_bitsize / 8, pubmoduli);//unblind bin
+	counter[j] += 1;
 	int temp_counter = 0;
 	temp_res = check_vals_in_BF(temp_elem, 1, unblinded_bf[0], bf_parameters, temp_counter); //checks if the elements (to be inserted/deleted) exists in the bin's bloom filters.
 	bigint* new_Bigint_BF;
 	new_Bigint_BF = unblinded_bf;
+	
 	if(updt == "insertion"){ // If the update is the insertion of the element: elem.
 		number_of_roots = 0;
 		num_of_elements_found = 0;
@@ -165,9 +169,10 @@ string Client::update(bigint elem, string updt, bigint & label, string id){
 			Polynomial pol_;
 			// exteracts the set elemenets from the bin by interpolating a polynomial and finding its roots.
 			bigint* coeff = pol_.interpolate(xpoint_size, xpoints, un_bl, pubmoduli); // interpolate a polynomial, given x and y coordinates.
-      			bigint* roots = findroots(coeff, xpoint_size, number_of_roots, pubmoduli, P); //finds the roots.
-      			bigint* valid_roots = check_vals_in_BF(roots, number_of_roots, unblinded_bf[0], bf_parameters, num_of_elements_found); // extracts the valid roots, by checking which roots are in the bin's bloom filters.
-      			bloom_filter filter(bf_parameters); // builds a new bloom filters for the bin.
+			bigint* roots = findroots(coeff, xpoint_size, number_of_roots, pubmoduli, P); //finds the roots.
+			bigint* valid_roots = check_vals_in_BF(roots, number_of_roots, unblinded_bf[0], bf_parameters, num_of_elements_found); // extracts the valid roots, by checking which roots are in the bin's bloom filters.
+			
+			bloom_filter filter(bf_parameters); // builds a new bloom filters for the bin.
 			string s = mpz_get_str(NULL, 10, elem);
 			filter.insert(s); // inserts the element, to be inserted, into the new bloom filters.
 			// inserts the set elements of the bin into the new bloom flters.
@@ -178,16 +183,40 @@ string Client::update(bigint elem, string updt, bigint & label, string id){
 				}
 			}
 			new_Bigint_BF = convert_BF_to_bigint(filter); // converts the filter to a bigint.
-      			bigint* padded_bin;
+			bigint* padded_bin;
 			padded_bin = (mpz_t*)malloc(NoElem_in_bucket * sizeof(mpz_t));
 			mpz_init_set(padded_bin[0],elem);
+			std::cout << "   ** inserting element: " << elem << endl;
 			for(int i = 1; i < NoElem_in_bucket; i++){
 				if(i < num_of_elements_found + 1){
 					mpz_init_set(padded_bin[i], valid_roots[i - 1]);}
-					else{mpz_init_set(padded_bin[i], minus_one);}
+				else{mpz_init_set(padded_bin[i], minus_one);}
 			}
 			Polynomial pol(padded_bin, xpoints, NoElem_in_bucket, xpoint_size, pubmoduli, pub_moduli_bitsize, xPoint_map);
-      			un_bl = pol.values; // sets the y-coordinates.
+			un_bl = pol.values; // sets the y-coordinates.
+
+			// number_of_roots = 0;
+			// num_of_elements_found = 0;
+			// Polynomial test_pol_;
+			
+			// bigint* test_coeff_ = test_pol_.interpolate(xpoint_size, xpoints, un_bl, pubmoduli);
+			// bigint* test_roots_ = findroots(test_coeff_, xpoint_size, number_of_roots, pubmoduli, P);
+			// if(number_of_roots != 0)
+			// {
+			// 	valid_roots = (mpz_t*)malloc(number_of_roots * sizeof(mpz_t));
+			// 	mpz_init_set(valid_roots[0], minus_one);
+			// 	valid_roots = check_vals_in_BF(test_roots_, number_of_roots, new_Bigint_BF[0], bf_parameters, num_of_elements_found);
+			// 	// std::cout << "   # valid elements : " << num_of_elements_found << std::endl;
+			// 	if (mpz_cmp(valid_roots[0], minus_one) != 0 && num_of_elements_found > 0)
+			// 	{
+			// 		std::cout << "   after elements: ";
+			// 		for (int k = 0; k < num_of_elements_found; k ++)
+			// 		{
+			// 			std::cout << valid_roots[k] << ", ";
+			// 		}
+			// 		std::cout << endl;
+			// 	}
+			// }	
 			string ss = mpz_get_str(NULL, 10, elem);
 			status="\nElement "+ss+" has been inserted";
 		}
@@ -222,9 +251,9 @@ string Client::update(bigint elem, string updt, bigint & label, string id){
 					if(mpz_cmp(valid_roots[i], elem) != 0){
 						mpz_init_set(padded_bin[i], valid_roots[i]);
 					}
-			else{ 
-				mpz_init_set(padded_bin[i], minus_one);
-			}
+					else{ 
+						mpz_init_set(padded_bin[i], minus_one);
+					}
 				}
 				else{mpz_init_set(padded_bin[i], minus_one);}
 			}
@@ -242,6 +271,172 @@ string Client::update(bigint elem, string updt, bigint & label, string id){
   	bl2 = (mpz_t*)malloc(xpoint_size * sizeof(mpz_t));
   	bl2 = poly_.blind_poly_(un_bl, xpoint_size, seed_, iv, key_size, j, counter[j], pub_moduli_bitsize/8, pubmoduli);
   	serv->update_client_bin(bl2, label, outpoly_ID, blinded_bf[0]); // asks the server to update the client's dataset.
+	return status;
+}
+
+string Client::new_update(bigint elem, string updt, bigint & label, string id){
+	
+	char * tmp_mod = mpz_get_str(NULL, 10, pubmoduli);
+	ZZ p = to_ZZ(tmp_mod);
+	ZZ_p::init(p);
+	ZZ_pX P;
+	bool exits = false;
+	string status;
+  	bigint *un_bl;
+	un_bl = (mpz_t*)malloc(xpoint_size * sizeof(mpz_t));
+	bigint *temp_label, *bin, zero, minus_one, bf, *unblinded_bf, *temp_elem, *temp_res,zz, *blinded_bf, *temp_ar;
+	temp_ar = (mpz_t*)malloc(xpoint_size * sizeof(mpz_t));
+	mpz_init_set_str(zero, "0", 10);
+	mpz_init_set_str(minus_one, "-1", 10);
+	int number_of_roots = 0;
+	int num_of_elements_found = 0;
+	bin = (mpz_t*)malloc(xpoint_size * sizeof(mpz_t));
+	temp_elem = (mpz_t*)malloc(1 * sizeof(mpz_t));
+	temp_res = (mpz_t*)malloc(1 * sizeof(mpz_t));
+	mpz_init_set(temp_elem[0], elem);
+	int tmpx;
+	int j = gen_binIndx(elem, table_size); // generates the bin index to which the element: elem, belongs to.
+	Random rd_;
+	temp_label = rd_.gen_PRN_(label_key_, label_iv, key_size, j, (pub_moduli_bitsize / 8), table_size);
+	mpz_init_set(label, temp_label[0]);
+	bin = serv->get_client_bin(label, id, bf, tmpx, exits, "update"); // retrieves bin: o_j, from the server and the corresponding bf.
+	if(!exits){
+		cout<<"\nIn update: the label does not exists!"<< endl;
+		return "0";
+	}
+	unblinded_bf = unblind_BF_(bf, j, BF_key_, BF_iv, pr_moduli);
+	Polynomial poly;
+	un_bl = poly.unblind_poly_(bin, xpoint_size, seed_, iv, key_size, j, counter[j], pub_moduli_bitsize / 8, pubmoduli);//unblind bin
+	counter[j] += 1;
+	int temp_counter = 0;
+	temp_res = check_vals_in_BF(temp_elem, 1, unblinded_bf[0], bf_parameters, temp_counter); //checks if the elements (to be inserted/deleted) exists in the bin's bloom filters.
+	bigint* new_Bigint_BF;
+	new_Bigint_BF = unblinded_bf;
+
+
+	// Polynomial test_pol;
+	// bigint* valid_roots;
+	// string tmpstr;
+
+	// bigint* test_coeff = test_pol.interpolate(xpoint_size, xpoints, un_bl, pubmoduli);
+	// bigint* test_roots = findroots(test_coeff, xpoint_size, number_of_roots, pubmoduli, P);
+	// std::cout << " - inserting " << elem << " at index " << j << std::endl;
+	// if(number_of_roots != 0)
+	// {
+	// 	valid_roots = (mpz_t*)malloc(number_of_roots * sizeof(mpz_t));
+	// 	mpz_init_set(valid_roots[0], minus_one);
+	// 	valid_roots = check_vals_in_BF(test_roots, number_of_roots, new_Bigint_BF[0], bf_parameters, num_of_elements_found);
+	// 	if (mpz_cmp(valid_roots[0], minus_one) != 0 && num_of_elements_found > 0)
+	// 	{
+	// 		std::cout << "   previous elements: ";
+	// 		for (int k = 0; k < num_of_elements_found; k ++)
+	// 		{
+	// 			tmpstr = mpz_get_str(NULL, 10, valid_roots[k]);
+	// 			std::cout << tmpstr << ", ";
+	// 			tmpstr.clear();
+	// 		}
+	// 		std::cout << endl;
+	// 	}
+	// }
+	
+	// std::free(valid_roots);
+
+	if(updt == "insertion"){ // If the update is the insertion of the element: elem.
+		number_of_roots = 0;
+		num_of_elements_found = 0;
+		if (mpz_cmp(temp_res[0], elem) != 0){
+#pragma omp parallel for
+			for(int i = 0; i < xpoint_size; i++)
+			{
+				bigint update_values, old_values, den, num, tmp;
+				mpz_init(update_values); mpz_init(old_values); mpz_init(den); mpz_init(num); mpz_init(tmp);
+				/*
+					update_values = un_bl[i] * (x_i - elem) / (x_i - dummy)
+				*/
+				mpz_set(old_values, un_bl[i]);					// old_values = un_bl[i]
+				mpz_set(num, xpoints[i]);	
+				mpz_sub(num, num, elem); 						// num = x_i - elem
+				mpz_mul(tmp, old_values, num); 					// tmp = old_values * num 
+				mpz_set(den, xpoints[i]);	
+				mpz_sub(den, den, minus_one); 					// den = x_i - dummy
+				mpz_invert(update_values, den, pubmoduli);		// update_values = den^-1 mod p
+				mpz_mul(update_values, tmp, update_values);		// update_values = tmp * update_values
+				mpz_mod(update_values, update_values, pubmoduli);		
+				mpz_set(un_bl[i], update_values);				// un_bl[i] = update_values
+			}
+			cout << endl;
+		}
+		else{cout << "\nElement " << elem << " already exists in the set, no insertion was required"<<endl;}
+		bloom_filter update_filter = convert_bigint_to_BF(new_Bigint_BF[0], bf_parameters);
+		update_filter.insert(elem);
+		new_Bigint_BF = convert_BF_to_bigint(update_filter);
+
+		string ss = mpz_get_str(NULL, 10, elem);
+		status="\nElement " + ss + " has been inserted";
+
+		// Polynomial test_pol_;
+		// bigint* valid_roots;
+		// bigint* test_coeff_ = test_pol_.interpolate(xpoint_size, xpoints, un_bl, pubmoduli);
+		// bigint* test_roots_ = findroots(test_coeff_, xpoint_size, number_of_roots, pubmoduli, P);
+		// cout << "# roots : " << number_of_roots << endl;
+		// cout << "test_roots_: ";
+		// for(int i = 0; i < number_of_roots; i++)
+		// {
+		// 	mpz_mod(test_roots_[i], test_roots_[i], pubmoduli);
+		// 	cout << test_roots_[i] << ", ";
+		// }
+		// cout << endl;
+		// if(number_of_roots != 0)
+		// {
+		// 	valid_roots = (mpz_t*)malloc(number_of_roots * sizeof(mpz_t));
+		// 	mpz_init_set(valid_roots[0], minus_one);
+		// 	valid_roots = check_vals_in_BF(test_roots_, number_of_roots, new_Bigint_BF[0], bf_parameters, num_of_elements_found);
+		// 	// std::cout << "   # valid elements : " << num_of_elements_found << std::endl;
+		// 	if (mpz_cmp(valid_roots[0], minus_one) != 0 && num_of_elements_found > 0)
+		// 	{
+		// 		std::cout << "   after elements: ";
+		// 		for (int k = 0; k < num_of_elements_found; k ++)
+		// 		{
+		// 			std::cout << valid_roots[k] << ", ";
+		// 		}
+		// 		std::cout << endl;
+		// 	}
+		// }
+	}
+	if(updt == "deletion"){ // If the update is the deletion of the element: elem.
+		number_of_roots = 0;
+		num_of_elements_found = 0;
+		if (mpz_cmp(temp_res[0], elem) != 0){
+			for(int i = 0; i < xpoint_size; i++)
+			{
+				bigint update_values, old_values, den, num, tmp;
+				mpz_init(update_values); mpz_init(old_values); mpz_init(den); mpz_init(num); mpz_init(tmp);
+				/*
+					update_values = un_bl[i] * (x_i - dummy) / (x_i - elem)
+				*/
+				mpz_set(old_values, un_bl[i]);					// old_values = un_bl[i]
+				mpz_set(den, xpoints[i]);	
+				mpz_sub(den, den, elem); 						// den = x_i - elem
+				mpz_mul(tmp, old_values, den); 					// tmp = old_values * den
+				mpz_set(num, xpoints[i]);	
+				mpz_sub(num, num, minus_one); 					// num = x_i - dummy
+				mpz_invert(update_values, num, pubmoduli);		// update_values = num^-1 mod p
+				mpz_mul(update_values, tmp, update_values);		// update_values = tmp * update_values
+				mpz_mod(update_values, update_values, pubmoduli);		
+				mpz_set(un_bl[i], update_values);				// un_bl[i] = update_values
+			}
+			cout << endl;
+		}
+		else{cout<<"Element "<<elem<<" does not exist in the set, no deletion was required"<<endl;}
+	}
+	double str_out_6_0 = clock();
+	blinded_bf = blind_BF_(new_Bigint_BF[0], j, BF_key_, BF_iv,  pr_moduli);
+	Polynomial poly_;
+  	bigint *bl2;
+  	bl2 = (mpz_t*)malloc(xpoint_size * sizeof(mpz_t));
+	bl2 = poly_.blind_poly_(un_bl, xpoint_size, seed_, iv, key_size, j, counter[j], pub_moduli_bitsize/8, pubmoduli);
+  	serv->update_client_bin(bl2, label, outpoly_ID, blinded_bf[0]); // asks the server to update the client's dataset.
+
 	return status;
 }
 //**********************************************************************
@@ -270,20 +465,20 @@ bigint** Client::gen_map_(int size, byte* label_key1, byte* label_iv1, byte* lab
 //**********************************************************************
 // - Function description: given two arrays permuted (under two different keys), it finds their matching indices.
 // It is called by find_matched_bins().
- int* Client::find_matches(int* a, int* b, int size){
+int* Client::find_matches(int* a, int* b, int size){
 
-	 int* res;
-	 res=new int[size];
-	 for(int i = 0; i < size; i++){
-		 for(int j = 0; j < size; j++){
-			 if(a[i] == b[j]){
-				 res[i] = j;
-				 break;
-			 }
-		 }
-	 }
-	 return res;
- }
+	int* res;
+	res=new int[size];
+	for(int i = 0; i < size; i++){
+		for(int j = 0; j < size; j++){
+			if(a[i] == b[j]){
+				res[i] = j;
+				break;
+			}
+		}
+	}
+	return res;
+}
  //**********************************************************************
 // - Function description: finds the match between two arrays permuted under two different keys.
 // In particular, for an index "i" in vecotr a permuted using key k_1, it finds index "j" in anoher
@@ -530,61 +725,78 @@ bigint** Client::combine_permuted_bins(bigint**& v_a, bigint**& v_b, bigint**& a
 }
 //**********************************************************************
 // - Function description: converts a bloom filter to a biginteger value.
-bigint* Client::convert_BF_to_bigint(bloom_filter filter){
-	
+bigint* 
+Client::convert_BF_to_bigint(bloom_filter filter)
+{	
 	int size = filter.bit_table_.size();
 	bigint* res;
 	res = (mpz_t*)malloc(1 * sizeof(mpz_t));
 	unsigned char ar[size];
-	for(int i = 0; i < size; i++){
+
+#ifdef __DEBUG
+	std::memset(ar, 0, sizeof(unsigned char) * size);
+#endif	
+	for (int i = 0; i < size; i++) {
 		ar[i] = filter.bit_table_[i];
+#ifdef __DEBUG
+		if (0 == i) {
+			std::cout << "Client::convert_BF_to_bigint() of size=" << size << std::endl;
+		}
+		std::printf("%02x", filter.bit_table_[i]);
+#endif		
 	}
+
 	mpz_init(res[0]);
 	mpz_import(res[0], sizeof(ar), 1, sizeof(ar[0]), 0, 0, ar);// converts the array of bytes to a biginteger.
+#ifdef __DEBUG
+	std::cout << std::endl;
+	std::cout << "BF_to_bigint=" << *res << std::endl;
+#endif
+
 	return res;
 }
 //**********************************************************************
 // - Function description: converts a biginteger representing a bloom filter to a bloom filter.
 // In the case where BF's very first bis are zero, when it is converted to a biginteger they would be lost.
 // So, the function ensures they are put back (using a pad), otherwise BF would not reconstructed correctly.
- bloom_filter Client::convert_bigint_to_BF(bigint a, bloom_parameters parameters){
-	 
-	 // converts bigint to a bitstring and pad it if needed.
-	 bloom_filter filter(bf_parameters);
-	 filter.clear();
-	 int size = filter.bit_table_.size();
-	 int offset = 0;
-	 int inx = 0;
-	 string s_val, pad;
-	 s_val=mpz_get_str(NULL, 2, a);
-	 //padds the string if needed
-	 if(s_val.length() < size * 8){
-		 int dif = (size * 8) - s_val.length();
-		 for (int j = 0;j < dif; j++){pad += "0";}
-	 }
-	 s_val = pad + s_val;
-	 // stores each 8-bits of the string in the hex form in each index of a new bf vector.
-	 while (offset < s_val.length() / 8 + 1){
-	 	string tmp_binr = s_val.substr(offset * 8, 8);
-		// converts tmp_binr to hex.
-		const unsigned g_unMaxBits = 8;
-		bitset <g_unMaxBits> bs(tmp_binr);
-		unsigned n = bs.to_ulong();
-		stringstream ss;
-		ss << hex << n;
-		string tmp_hex = "0x" + boost::to_upper_copy(ss.str());
-		// stores hex in the filter.
-	 	std::istringstream str(tmp_hex);
-	 	int num;
-	 	str >> std::hex >> num;
-	 	filter.bit_table_[inx] = num;
-	 	inx++;
-	 	offset++;
-		 str.clear();
-	 }
-	 s_val.clear();
-	 pad.clear();
-	 return filter;
+bloom_filter Client::convert_bigint_to_BF(bigint a, bloom_parameters parameters){
+	
+	// converts bigint to a bitstring and pad it if needed.
+	bloom_filter filter(bf_parameters);
+	filter.clear();
+	int size = filter.bit_table_.size();
+	int offset = 0;
+	int inx = 0;
+	string s_val, pad;
+	s_val=mpz_get_str(NULL, 2, a);
+	//padds the string if needed
+	if(s_val.length() < size * 8){
+		int dif = (size * 8) - s_val.length();
+		for (int j = 0;j < dif; j++){pad += "0";}
+	}
+	s_val = pad + s_val;
+	// stores each 8-bits of the string in the hex form in each index of a new bf vector.
+	while (offset < s_val.length() / 8 + 1){
+	string tmp_binr = s_val.substr(offset * 8, 8);
+	// converts tmp_binr to hex.
+	const unsigned g_unMaxBits = 8;
+	bitset <g_unMaxBits> bs(tmp_binr);
+	unsigned n = bs.to_ulong();
+	stringstream ss;
+	ss << hex << n;
+	string tmp_hex = "0x" + boost::to_upper_copy(ss.str());
+	// stores hex in the filter.
+	std::istringstream str(tmp_hex);
+	int num;
+	str >> std::hex >> num;
+	filter.bit_table_[inx] = num;
+	inx++;
+	offset++;
+		str.clear();
+	}
+	s_val.clear();
+	pad.clear();
+	return filter;
 }
 //**********************************************************************
 // - Function description: given an element, it determines its bin's index in the hash table.
@@ -611,31 +823,59 @@ int Client::gen_binIndx(bigint elem, int table_size){
 }
 //**********************************************************************
 // - Function description: given a hashtable containing set elements, it assigns a bloom filter to each bin of the table.
-bigint* Client::assing_BFs2HT(Hashtable HT, int NoElem_in_bucket, int table_size, bloom_parameters parameters){
-	
+bigint* 
+Client::assign_BFs2HT(Hashtable HT, 
+					  int NoElem_in_bucket, 
+					  int table_size, 
+					  bloom_parameters parameters)
+{	
 	bloom_filter filter(bf_parameters);
 	bigint minus_one;
 	mpz_init_set_str(minus_one, "-1", 10);
 	bigint* temp_ar, *bigint_BF, *temp_bigint;
 	bigint_BF = (mpz_t*)malloc(table_size * sizeof(mpz_t));
 	temp_bigint = (mpz_t*)malloc(1 * sizeof(mpz_t));
+
 	// retrives the set elements of each bin, and inserts them to bloom filters.
-	for(int i = 0; i < table_size; i++){
+	for (int i = 0; i < table_size; i++) {
 		temp_ar = HT.get_bucket(i);
-		for(int j = 0; j < NoElem_in_bucket; j++){
-			if(mpz_cmp(temp_ar[j], minus_one) > 1){
+#ifdef __DEBUG
+		if (0 == i) {
+			std::cout << "Client::assign_BFs2HT() where NoElem_in_bucket=" << NoElem_in_bucket << std::endl;
+		}
+		for (int j = 0; j < NoElem_in_bucket; j++) {
+			std::cout << "HT.get_bucket(" << i << ")[" << j << "]=" << temp_ar[j] << ",";
+		}
+		std::cout << std::endl;
+#endif
+		for (int j = 0; j < NoElem_in_bucket; j++) {
+#ifdef __DEBUG
+			std::cout << "temp_ar[" << j << "] > -1? " << mpz_cmp(temp_ar[j], minus_one) << std::endl;
+#endif
+			if (mpz_cmp(temp_ar[j], minus_one) >= 1) {
 				string s = mpz_get_str(NULL, 10, temp_ar[j]); // this is done to make query and insertion compatible.
 				filter.insert(s);
 				s.clear();
 			}
 		}
 		temp_bigint = convert_BF_to_bigint(filter); // converts the bloom filter to a biginteger.
+#ifdef __DEBUG		
+		std::cout << "temp_bigint(" << i << ")=" << *temp_bigint << std::endl;
+#endif		
 		mpz_init_set(bigint_BF[i], temp_bigint[0]); // stores the biginteger in an array.
 		filter.clear();
 	}
 	mpz_clear(temp_bigint[0]);
   	free(temp_bigint);
   	mpz_clear(minus_one);
+
+#ifdef __DEBUG
+	// std::cout << "Client::assign_BFs2HT()" << std::endl;
+	for (int i = 0; i < table_size; i++) {
+		std::cout << "bigint_BF[" << i << "]=" << bigint_BF[i] << std::endl;
+	}
+#endif
+
   	return bigint_BF;
 }
 //**********************************************************************
@@ -706,51 +946,89 @@ void Client::get_tablesize(){
 
 	table_size = serv->get_table_size();
 }
+
 //**********************************************************************
 // - Function description: prepare the set elements and sends a blinded dataset to the server.
-void Client::outsource_db(string& poly_ID){
-
+void 
+Client::outsource_db(string& poly_ID)
+{
 	Client_Dataset db;
 	bigint minus_one, *blinded_BF, *bigint_BF;
 	mpz_init_set_str(minus_one, "-1", 10);
 	Hashtable HT(NoElem_in_bucket, elem, elem_size, table_size); // contructs a hash table and inserts the element into it.
-	if(poly_ID == "B_ID"){ // this is done only for test-- so it can be tested on devices with small memory-- it can be commented out.
-    	bigint_BF = assing_BFs2HT(HT, NoElem_in_bucket, table_size, bf_parameters); // assigns a bloom filters to each bin. It returns an array of bigint representing bloom filters.
-    	blinded_BF = blind_BFs_(bigint_BF, table_size , BF_key_, BF_iv, pr_moduli);
+
+	if (poly_ID == "B_ID") { // this is done only for test-- so it can be tested on devices with small memory-- it can be commented out.
+    	bigint_BF = assign_BFs2HT(HT, NoElem_in_bucket, table_size, bf_parameters); // assigns a bloom filters to each bin. It returns an array of bigint representing bloom filters.
+    	blinded_BF = blind_BFs_(bigint_BF, table_size, BF_key_, BF_iv, pr_moduli);
+		std::cout << "Client::outsource_db()" << std::endl;
+#ifdef __DEBUG
+		for (int i = 0; i < table_size; i++) {
+			std::cout << "bigint_BF[" << i << "]=" << bigint_BF[i] << std::endl;
+		}
+#endif
     	db.BF = PR_shuffle(blinded_BF, table_size, shuffle_key); // permutes the array of bigintegers and stores the result in Client_Dataset that will be sent to the server.
+#ifdef _DEBUG
+		std::cout << "outsource_db: blinded_BF" << std::endl;
+		std::cout << "(shuffled)blinded_BF[0]=" << db.BF[0] << std::endl;
+#endif
 	}
+
 	//sets parameters to represent each bin by a polynomial
 	Polynomial *poly;
 	poly = new Polynomial [table_size];
 	outpoly_ID = poly_ID;
+	
 	// for every index in the hash table, it contructs a polynomial (in poly is decided whether dummy values shuold be used).
 	bigint* labels;
 	labels = (mpz_t*)malloc(table_size * sizeof(mpz_t));
 	Random rd_;
 	labels = rd_.gen_PRNs_(label_key_, label_iv, key_size, table_size, ((pub_moduli_bitsize + 6) / 8), table_size);
   	db.labels = PR_shuffle(labels, table_size, shuffle_key);
-  	for(int i = 0; i < table_size; i++){
-		if(poly_ID == "B_ID"){
+  	for (int i = 0; i < table_size; i++) {
+		if (poly_ID == "B_ID") {
 			mpz_clear(bigint_BF[i]);
 			mpz_clear(blinded_BF[i]);
 		}
 		mpz_clear(labels[i]);
+
+#ifdef __DEBUG
+		cout << "---" << i << "th bin: ";
+		for(int j = 0; j < NoElem_in_bucket; j++)
+		{
+			if(mpz_cmp(HT.get_bucket(i)[j], minus_one) != 0) cout << HT.get_bucket(i)[j] << ", ";
+		}
+		cout << endl;
+#endif
 		Polynomial pol(HT.get_bucket(i), xpoints, NoElem_in_bucket, xpoint_size, pubmoduli, pub_moduli_bitsize, xPoint_map);
+
+		char * tmp_mod = mpz_get_str(NULL, 10, pubmoduli);
+		ZZ tmp_p = to_ZZ(tmp_mod);
+		ZZ_p::init(tmp_p);
+
+		Polynomial test_pol; 
+		ZZ_pX test_P;
+		int number_of_roots = 0, num_of_elements_found = 0;
 		poly[i] = pol;
 		// assigns a seed to every index of HT.	Each seed is used to blind corresponding poly.
+#ifdef PSU
+		poly[i].blind_psu_poly_(seed_, iv, AES::DEFAULT_KEYLENGTH, i, counter[i], pub_moduli_bitsize / 8, pubmoduli);
+#else
 		poly[i].blind_poly_(seed_, iv, AES::DEFAULT_KEYLENGTH, i, counter[i], pub_moduli_bitsize / 8, pubmoduli);
+#endif
 	}
 	db.poly = PR_shuffle_poly(poly, table_size, shuffle_key);
 	db.client_ID = poly_ID;
 	serv->store_poly(db);
   	delete[] poly;
   	free(labels);
-  	if(poly_ID == "B_ID"){
+  	if (poly_ID == "B_ID") {
     	free(blinded_BF);
     	free(bigint_BF);
 	}
 	mpz_clear(minus_one);
 	HT.clear();
+
+	return;
 }
 //**********************************************************************
 // - Function description: generates a request for PSI computation. This request is created by the result recipient client and
@@ -818,18 +1096,18 @@ GrantComp_Info * Client::grant_comp(CompPerm_Request* com_req, bigint **&qq, boo
 		e.SetKeyWithIV(temp_key, key_size, temp_iv);
 		v_A[i] = (mpz_t*)malloc(xpoint_size * sizeof(mpz_t));
 		v_B[i] = (mpz_t*)malloc(xpoint_size * sizeof(mpz_t));
-    		a[i] = (mpz_t*)malloc(xpoint_size * sizeof(mpz_t));
-    		qq[i] = (mpz_t*)malloc(xpoint_size * sizeof(mpz_t));
-    		cipher.clear();
-    		StringSource s(to_string(i), true, new StreamTransformationFilter(e, new StringSink(cipher)));//encrypt i
-    		//set the result as a key
-    		unsigned char der_key[key_size]; // convert the ciphertext into a der_key
-    		memset(der_key, 0x00, key_size + 1);
-    		strcpy((char*)der_key, cipher.c_str());
-    		e.SetKeyWithIV(der_key, key_size, temp_iv);	// set key an iv.
+		a[i] = (mpz_t*)malloc(xpoint_size * sizeof(mpz_t));
+		qq[i] = (mpz_t*)malloc(xpoint_size * sizeof(mpz_t));
+		cipher.clear();
+		StringSource s(to_string(i), true, new StreamTransformationFilter(e, new StringSink(cipher)));//encrypt i
+		//set the result as a key
+		unsigned char der_key[key_size]; // convert the ciphertext into a der_key
+		memset(der_key, 0x00, key_size + 1);
+		strcpy((char*)der_key, cipher.c_str());
+		e.SetKeyWithIV(der_key, key_size, temp_iv);	// set key an iv.
 		for(int j = 0; j < 3; j++){
 			cipher.clear();
-      			StringSource s(to_string(j), true, new StreamTransformationFilter(e, new StringSink(cipher)));
+			StringSource s(to_string(j), true, new StreamTransformationFilter(e, new StringSink(cipher)));
 			if(j == 0){
 				memset(der_key_0, 0x00, key_size+1);
 				strcpy((char*)der_key_0, cipher.c_str());
@@ -846,22 +1124,22 @@ GrantComp_Info * Client::grant_comp(CompPerm_Request* com_req, bigint **&qq, boo
 		cipher.clear();
 		// generates two sets: Sw1 and Sw2, each of which contains d+1 random coefficients.
 		Sw1 = rd_.gen_PRNs_(der_key_1, temp_iv, key_size, NoElem_in_bucket + 1, byte_, table_size);
-    		Sw2 = rd_.gen_PRNs_(der_key_2, temp_iv, key_size, NoElem_in_bucket + 1, byte_, table_size);
-    		Polynomial pol_1, pol_2;
-    		temp_w1 = pol_1.evaluate_coeffs(Sw1, xpoints, NoElem_in_bucket + 1, xpoint_size, pubmoduli); // evaluates the random coefficients in Sw1 at x-coordinates.
-    		temp_w2 = pol_2.evaluate_coeffs(Sw2, xpoints, NoElem_in_bucket + 1, xpoint_size, pubmoduli); // evaluates the random coefficients in Sw2 at x-coordinates.
+		Sw2 = rd_.gen_PRNs_(der_key_2, temp_iv, key_size, NoElem_in_bucket + 1, byte_, table_size);
+		Polynomial pol_1, pol_2;
+		temp_w1 = pol_1.evaluate_coeffs(Sw1, xpoints, NoElem_in_bucket + 1, xpoint_size, pubmoduli); // evaluates the random coefficients in Sw1 at x-coordinates.
+		temp_w2 = pol_2.evaluate_coeffs(Sw2, xpoints, NoElem_in_bucket + 1, xpoint_size, pubmoduli); // evaluates the random coefficients in Sw2 at x-coordinates.
 		for(int j = 0; j < xpoint_size; j++){
 			mpz_init(v_A[i][j]);
 			mpz_init(v_B[i][j]);
-      			mpz_mul(v_A[i][j], s_bl[i][j], temp_w1[j]);
-      			mpz_mod(v_A[i][j], v_A[i][j], pubmoduli);
-      			mpz_mul(v_B[i][j], com_req->r[i][j], temp_w2[j]);
-      			mpz_mod(v_B[i][j], v_B[i][j], pubmoduli);
-      			temp_1 = rd_.gen_PRN_(der_key_0, temp_iv, key_size, j, byte_, table_size);
-      			mpz_mod(temp_1[0], temp_1[0], pubmoduli);
-      			mpz_init_set(a[i][j], temp_1[0]);
-      			mpz_clear(temp_w1[j]);
-      			mpz_clear(temp_w2[j]);
+			mpz_mul(v_A[i][j], s_bl[i][j], temp_w1[j]);
+			mpz_mod(v_A[i][j], v_A[i][j], pubmoduli);
+			mpz_mul(v_B[i][j], com_req->r[i][j], temp_w2[j]);
+			mpz_mod(v_B[i][j], v_B[i][j], pubmoduli);
+			temp_1 = rd_.gen_PRN_(der_key_0, temp_iv, key_size, j, byte_, table_size);
+			mpz_mod(temp_1[0], temp_1[0], pubmoduli);
+			mpz_init_set(a[i][j], temp_1[0]);
+			mpz_clear(temp_w1[j]);
+			mpz_clear(temp_w2[j]);
 		}
 	}
 	cipher.clear();
@@ -881,29 +1159,38 @@ GrantComp_Info * Client::grant_comp(CompPerm_Request* com_req, bigint **&qq, boo
 }
 //**********************************************************************
 // - Function description: given an array of polynomial's coefficients, it finds and returns the polynomials roots.
-bigint* Client::findroots(bigint *coeff, int coeff_size, int& number_of_roots, bigint pubmoduli, ZZ_pX P){
-
+bigint* 
+Client::findroots(bigint *coeff, 
+				  int coeff_size, 
+				  int& number_of_roots, 
+				  bigint pubmoduli, 
+				  ZZ_pX P)
+{
 	int counter_roots = 0;
 	bigint *res;
 	res = (mpz_t*)malloc(coeff_size * sizeof(mpz_t));
 	ZZ one(1);
-	for(int j = 0; j < coeff_size; j++){
+	
+	/// build a polynomial in ZZ_p[x]
+	for (int j = 0; j < coeff_size; j++) {
 		char * tmp = mpz_get_str(NULL, 10, coeff[j]);
 		ZZ_p dd = to_ZZ_p(conv<ZZ> (tmp));
 		SetCoeff(P, j, dd);
 	}
+
 	ZZ_p a = LeadCoeff(P);
 	ZZ aa = rep(a);
-	if(aa > one){
+	if (aa > one) {
 		MakeMonic(P);
 	}
+	/// Cantor-Zassenhaus factoring P(x) in ZZ_p[x]
 	Vec< Pair < ZZ_pX, long > > factors;
 	CanZass(factors, P);
 	vec_ZZ_p root;
-	for(int j = 0; j < factors.length(); j++){
-		if(factors[j].a.rep.length() == 2){
+	for (int j = 0; j < factors.length(); j++) {
+		if (factors[j].a.rep.length() == 2) {
 			root = FindRoots(factors[j].a);
-			for(int k = 0; k < root.length(); k++){
+			for (int k = 0; k < root.length(); k++) {
 				stringstream ss;
 				ss << root[k];
 				string tmpm = ss.str();
@@ -915,14 +1202,27 @@ bigint* Client::findroots(bigint *coeff, int coeff_size, int& number_of_roots, b
 			}
 		}
 	}
+#ifdef _DEBUG
+	std::cout << "findroots: result" << std::endl;
+	for (int i = 0; i < coeff_size; i++) {
+		std::cout << res[i] << ",";
+	}
+	std::cout << std::endl;
+#endif	
+
 	number_of_roots = counter_roots;
+	
 	return res;
 }
 //**********************************************************************
 // - Function description: given the server's response, it find the intersection. In particular,
 // it  unblinds the result, finds the polynomials roots and retrives the valid ones.
-vector <string> Client::find_intersection(Server_Result* res, int*& size, bigint*** Q, int number_of_clients){
-	
+vector <string> 
+Client::find_intersection(Server_Result* res, 
+						  int*& size,
+						  bigint*** Q, 
+						  int number_of_clients)
+{
 	char * tmp_mod = mpz_get_str(NULL, 10, pubmoduli);
 	ZZ p = to_ZZ(tmp_mod);
 	ZZ_p::init(p);
@@ -938,18 +1238,27 @@ vector <string> Client::find_intersection(Server_Result* res, int*& size, bigint
 	coeff = (mpz_t*)malloc(xpoint_size * sizeof(mpz_t));
 	roots = (mpz_t*)malloc(xpoint_size * sizeof(mpz_t));
 	unbl_BFs = unblind_BFs_(res->BF, table_size, BF_key_, BF_iv, pr_moduli);
+
+#ifdef _DEBUG
+	std::cout << "Client::find_intersection()" << std::endl;
+	for (int i = 0; i < 5; i++) {
+		std::cout << "res->BF[" << i << "]=" << res->BF[i] << std::endl;
+	}
+	std::cout << std::endl;
+#endif
 	int number_of_roots = 0;
   	int num_of_elements_found = 0;
   	bigint tmp_x, temp_q;
   	mpz_init(tmp_x);
 	string tempstr;
-	for(int i = 0; i < table_size; i++){
-		if( mpz_cmp(unbl_BFs[i],zero)!= 0){
+
+	for (int i = 0; i < table_size; i++) {
+		if (mpz_cmp(unbl_BFs[i], zero) != 0){
       		// removes the blinding factors
-			for(int j = 0; j < xpoint_size; j++){
+			for (int j = 0; j < xpoint_size; j++) {
 				mpz_init(un_bl[j]);
 				mpz_init(temp_q);
-				for(int t = 0; t < (number_of_clients - 1); t++){
+				for (int t = 0; t < (number_of_clients - 1); t++) {
 					mpz_add(temp_q, temp_q, Q[t][i][j]);
 					mpz_mod(temp_q, temp_q, pubmoduli);
 				}
@@ -959,48 +1268,201 @@ vector <string> Client::find_intersection(Server_Result* res, int*& size, bigint
 			}
 			number_of_roots = 0;
 			num_of_elements_found = 0;
-      			Polynomial pol;
-      			coeff = pol.interpolate(xpoint_size, xpoints, un_bl, pubmoduli); // interpolates a polynomial given x and y coordinates
-      			roots = findroots(coeff, xpoint_size, number_of_roots, pubmoduli, P); // finds the roots of the interpolated polynomial.
-      			if(number_of_roots != 0){
+			Polynomial pol;
+			coeff = pol.interpolate(xpoint_size, xpoints, un_bl, pubmoduli); // interpolates a polynomial given x and y coordinates
+			roots = findroots(coeff, xpoint_size, number_of_roots, pubmoduli, P); // finds the roots of the interpolated polynomial.
+
+#ifdef _DEBUG
+			std::cout << "Roots" << std::endl;
+			for (int i = 0; i < number_of_roots; i++) {
+				std::cout << "A root x_" << i << "=" << roots[i] << std::endl;
+			}
+			std::cout << std::endl;
+
+			std::cout << "Factorizing an interpolated polynomial" << std::endl;
+			std::cout << "P(x)=" << P << std::endl;
+#endif
+			if (number_of_roots != 0) {
 				valid_roots = (mpz_t*)malloc(number_of_roots * sizeof(mpz_t));
-        			mpz_init_set(valid_roots[0], minus_one);
-        			valid_roots = check_vals_in_BF(roots, number_of_roots, unbl_BFs[i], bf_parameters, num_of_elements_found); // extracts the valid roots.
-        			if(mpz_cmp(valid_roots[0], minus_one)!= 0 && num_of_elements_found > 0){
-					for(int k = 0; k < num_of_elements_found; k++){ // stores the valid roots.
+				mpz_init_set(valid_roots[0], minus_one);
+				valid_roots = check_vals_in_BF(roots, number_of_roots, unbl_BFs[i], bf_parameters, num_of_elements_found); // extracts the valid roots.
+				if (mpz_cmp(valid_roots[0], minus_one) != 0 && num_of_elements_found > 0) {
+					for (int k = 0; k < num_of_elements_found; k++) { // stores the valid roots.
 						tempstr.clear();
-            					tempstr = mpz_get_str(NULL, 10, valid_roots[k]);
-            					mpz_clear(valid_roots[k]);
-            					all_valid_roots.push_back(tempstr);
-            					tempstr.clear();
+						tempstr = mpz_get_str(NULL, 10, valid_roots[k]);
+						mpz_clear(valid_roots[k]);
+						all_valid_roots.push_back(tempstr);
+						tempstr.clear();
 					}
 				}
 			}
 			mpz_clear(unbl_BFs[i]);
 		}
 	}
-	free(unbl_BFs);
-	free(coeff);
+	std::free(unbl_BFs);
+	std::free(coeff);
+
 	return all_valid_roots;
 }
+
+
+
+vector <string> 
+Client::find_union(Server_Result* res, 
+						  int*& size,
+						  bigint*** Q, 
+						  int number_of_clients,
+						  int max_bucket_size)
+{
+	char * tmp_mod = mpz_get_str(NULL, 10, pubmoduli);
+	ZZ p = to_ZZ(tmp_mod);
+	ZZ_p::init(p);
+	ZZ_pX P;
+  	bigint zero, minus_one;
+  	mpz_init_set_str(zero, "0", 10);
+  	mpz_init_set_str(minus_one, "-1", 10);
+	vector <string> all_valid_roots;
+	bigint *un_bl, *unbl_BFs;
+	bigint *roots, *coeff;
+ 	bigint* valid_roots;
+	un_bl = (mpz_t*)malloc(xpoint_size * sizeof(mpz_t));
+	coeff = (mpz_t*)malloc(xpoint_size * sizeof(mpz_t));
+	roots = (mpz_t*)malloc(xpoint_size * sizeof(mpz_t));
+	unbl_BFs = unblind_BFs_(res->BF, table_size, BF_key_, BF_iv, pr_moduli);
+
+	int number_of_roots = 0;
+  	int num_of_elements_found = 0;
+  	bigint tmp_x, temp_q;
+  	mpz_init(tmp_x);
+	string tempstr;
+
+	mpz_t* denom_coeff;
+	int denom_size = 2 * number_of_clients * max_bucket_size + 1;
+	denom_coeff = (mpz_t*)malloc(denom_size * sizeof(mpz_t));
+	memset(denom_coeff, 0, denom_size * sizeof(mpz_t));
+
+#pragma omp parallel for
+	for (int i = 0; i < table_size; i++) {
+		if (mpz_cmp(unbl_BFs[i], zero) != 0){
+      		// removes the blinding factors
+			for (int j = 0; j < xpoint_size; j++) {
+				mpz_init(un_bl[j]);
+				mpz_init(temp_q);
+				for (int t = 0; t < (number_of_clients - 1); t++) {
+					mpz_add(temp_q, temp_q, Q[t][i][j]);
+					mpz_mod(temp_q, temp_q, pubmoduli);
+				}
+				mpz_sub(un_bl[j], pubmoduli, temp_q);
+				mpz_add(un_bl[j], un_bl[j], res->result[i][j]);
+				mpz_mod(un_bl[j], un_bl[j], pubmoduli);
+			}
+			number_of_roots = 0;
+			num_of_elements_found = 0;
+			Polynomial pol;
+			coeff = pol.interpolate(xpoint_size, xpoints, un_bl, pubmoduli); // interpolates a polynomial given x and y coordinates
+			roots = findroots(coeff, xpoint_size, number_of_roots, pubmoduli, P); // finds the roots of the interpolated polynomial.
+#ifdef _DEBUG
+			std::cout << "mpz coeff: ";
+			for(int j = 0; j <= xpoint_size; j++)
+			{
+				std::cout << coeff[j] << ",";
+			}
+			std::cout << std::endl;
+#endif
+			// RNS polynomial -> rational polynomial
+			ZZ_pX numerator, denominator, rns;
+
+    		memset(denom_coeff, 0, denom_size * sizeof(mpz_t));
+
+			mpz_to_zzpx(coeff, rns, xpoint_size);
+			RLS_to_rational(rns, numerator, denominator, max_bucket_size, number_of_clients);
+			zzpx_to_mpz(denominator, denom_coeff);
+			// roots = findroots(denom_coeff, denom_size, number_of_roots, pubmoduli, P); // finds the roots of the interpolated polynomial.
+
+#ifdef _DEBUG
+			std::cout << "Roots" << std::endl;
+			for (int i = 0; i < number_of_roots; i++) {
+				std::cout << "A root x_" << i << "=" << roots[i] << std::endl;
+			}
+			std::cout << std::endl;
+
+			std::cout << "Factorizing an interpolated polynomial" << std::endl;
+			std::cout << "P(x)=" << P << std::endl;
+#endif
+			// if (number_of_roots != 0) {
+				// valid_roots = (mpz_t*)malloc(number_of_roots * sizeof(mpz_t));
+				// mpz_init_set(valid_roots[0], minus_one);
+				// valid_roots = check_vals_in_BF(roots, number_of_roots, unbl_BFs[i], bf_parameters, num_of_elements_found); // extracts the valid roots.
+				// if (mpz_cmp(valid_roots[0], minus_one) != 0 && num_of_elements_found > 0) {
+				// 	for (int k = 0; k < num_of_elements_found; k++) { // stores the valid roots.
+				// 		tempstr.clear();
+				// 		tempstr = mpz_get_str(NULL, 10, valid_roots[k]);
+				// 		mpz_clear(valid_roots[k]);
+				// 		all_valid_roots.push_back(tempstr);
+				// 		tempstr.clear();
+				// 	}
+				// }
+				// for(int k = 0; k < num_of_elements_found; k++)
+				// {
+				// 	tempstr.clear();
+				// 	tempstr = mpz_get_str(NULL, 10, roots[k]);
+				// 	mpz_clear(valid_roots[k]);
+				// 	all_valid_roots.push_back(tempstr);
+				// 	tempstr.clear();
+				// }
+			// }
+			mpz_clear(unbl_BFs[i]);
+			memset(coeff, 0, xpoint_size * sizeof(mpz_t));
+			memset(roots, 0, xpoint_size * sizeof(mpz_t));
+			memset(denom_coeff, 0, denom_size * sizeof(mpz_t));
+		}
+	}
+	std::free(unbl_BFs);
+	std::free(coeff);
+
+	return all_valid_roots;
+}
+
+
 //**********************************************************************
 // - Function description: given an array of bigintegers representing Bloom filters, it blinds and returns the blinded ones.
 // Used in outsourcing phase.
-bigint* Client::blind_BFs_(bigint* bf, int bf_size, byte* BF_key, byte* BF_iv, bigint pr_moduli){
-	
+bigint* 
+Client::blind_BFs_(bigint* bf, 
+				   int bf_size, 
+				   byte* BF_key, 
+				   byte* BF_iv, 
+				   bigint pr_moduli)
+{	
 	//genrates table size pseudorandom values using the BF_key.
 	bigint* blinded_BF;
 	blinded_BF = (mpz_t*)malloc(bf_size * sizeof(mpz_t));
 	bigint *blinding_fac;
-	for(int i = 0; i < bf_size; i++){
+
+	for (int i = 0; i < bf_size; i++) {
 		mpz_init(blinded_BF[i]);
 		blinding_fac = gen_BF_PRN_(i, counter[i], BF_key, BF_iv);
-    		mpz_mod(blinding_fac[0], blinding_fac[0], pr_moduli);
+		mpz_mod(blinding_fac[0], blinding_fac[0], pr_moduli);
+#ifdef __DEBUG
+		if (0 == i) {
+			std::cout << "Client::blind_BFs_: blind factors" << std::endl;
+			// std::cout << "BF_iv=";
+			// for (int j = 0; j < AES::DEFAULT_KEYLENGTH; j++) {
+			// 	std::printf("%02x", BF_key[j]);
+			// }
+			// std::cout << std::endl;
+		}
+		std::cout << "blinding_fac[" << i << "]=" << *blinding_fac << std::endl;
+#endif
 		mpz_add(blinded_BF[i], blinding_fac[0], bf[i]); // blinds each biginteger representing a bloom filters.
 		mpz_mod(blinded_BF[i], blinded_BF[i], pr_moduli);
+#ifdef __DEBUG
+		std::cout << "bf[" << i << "]=" << bf[i] << std::endl;
+#endif
 	}
 	mpz_clear(blinding_fac[0]);
   	free(blinding_fac);
+
 	return blinded_BF;
 }
 //**********************************************************************
@@ -1008,7 +1470,7 @@ bigint* Client::blind_BFs_(bigint* bf, int bf_size, byte* BF_key, byte* BF_iv, b
 bigint* Client::gen_BF_PRN_(int indx, int counter_indx, byte* BF_key, byte* BF_iv){
 
 	int key_size =  AES::DEFAULT_KEYLENGTH;
-	// regenertes the corresponding blinding factor.
+	// regenerates the corresponding blinding factor.
   	int Num_of_AES_Invocations = 45;
 	bigint  *bld_factor;
 	bld_factor = (mpz_t*)malloc(1 * sizeof(mpz_t));
@@ -1042,33 +1504,67 @@ bigint* Client::gen_BF_PRN_(int indx, int counter_indx, byte* BF_key, byte* BF_i
 	mpz_import(bld_factor[0], prn_size_, 1, sizeof(prn_[0]), 0, 0, prn_);
   	delete[]prn_ ;
   	cipher.clear();
+
 	return bld_factor;
 }
 //**********************************************************************
 // - Function description: unblinds an array of bigintegers representing Bloom filters.
-bigint* Client::unblind_BFs_(bigint* BF, int bf_size, byte* BF_key, byte* BF_iv, bigint pr_moduli){
-	
+bigint* 
+Client::unblind_BFs_(bigint* BF, 
+					 int bf_size, 
+					 byte* BF_key, 
+					 byte* BF_iv, 
+					 bigint pr_moduli)
+{	
 	bigint* unblinded_BFs, *temp, *bld_factor, *shuffled_bld;
 	unblinded_BFs = (mpz_t*)malloc(bf_size * sizeof(mpz_t));
   	bld_factor = (mpz_t*)malloc(bf_size * sizeof(mpz_t));
-  	for(int i = 0; i < bf_size; i++){
+ 
+  	for (int i = 0; i < bf_size; i++) {
 		temp = gen_BF_PRN_(i, counter[i], BF_key, BF_iv);
-    		mpz_init(bld_factor[i]);
-    		mpz_mod(bld_factor[i], temp[0], pr_moduli);
+		mpz_init(bld_factor[i]);
+		mpz_mod(bld_factor[i], temp[0], pr_moduli);
+#ifdef _DEBUG
+		if (0 == i) {
+			std::cout << "Client::unblind_BFs_: blind factors" << std::endl;
+			// std::cout << "BF_iv=";
+			// for (int j = 0; j < AES::DEFAULT_KEYLENGTH; j++) {
+			// 	std::printf("%02x", BF_key[j]);
+			// }
+			// std::cout << std::endl;
+		}
+		std::cout << "bld_factor[" << i << "]=" << bld_factor[i] << std::endl;
+#endif
 	}
+#ifdef _DEBUG
+	std::cout << "pr_moduli = " << pr_moduli << std::endl;
+#endif
+
 	//suffle blinding factors
   	shuffled_bld = PR_shuffle(bld_factor, bf_size, shuffle_key);
-  	for(int j = 0; j < bf_size; j++){
+  	for (int j = 0; j < bf_size; j++) {
 		mpz_init(unblinded_BFs[j]);
-    		mpz_sub(unblinded_BFs[j], pr_moduli, shuffled_bld[j]);
-    		mpz_add(unblinded_BFs[j], unblinded_BFs[j], BF[j]);
-    		mpz_mod(unblinded_BFs[j], unblinded_BFs[j], pr_moduli);
-    		mpz_clear(shuffled_bld[j]);
-    		mpz_clear(bld_factor[j]);
+		mpz_sub(unblinded_BFs[j], pr_moduli, shuffled_bld[j]);	/// unblinded_BFs[j] = pr_moduli - shuffled_bld[j]
+		mpz_add(unblinded_BFs[j], unblinded_BFs[j], BF[j]);		/// unblinded_BFs[j] = pr_moduli - shuffled_bld[j] + BF[j]
+		mpz_mod(unblinded_BFs[j], unblinded_BFs[j], pr_moduli);	/// pr_moduli - shuffled_bld[j] + BF[j] mod pr_moduli
+																/// currently: shuffled_bld[j] == BF[j]
+#ifdef _DEBUG
+		if (0 == j) {
+			std::cout << "Client::unblind_BFs_()" << std::endl;
+		}
+		if (5 > j) {
+			std::cout << "shuffled_bld[" << j << "]=" << shuffled_bld[j] << std::endl;
+			// std::cout << "BF[" << j << "]=" << BF[j] << std::endl;
+		}
+#endif
+		mpz_clear(shuffled_bld[j]);
+		mpz_clear(bld_factor[j]);
 	}
+
 	free(shuffled_bld);
   	free(temp);
   	free(bld_factor);
+
   	return unblinded_BFs;
 }
 //**********************************************************************

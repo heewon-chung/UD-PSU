@@ -1,3 +1,2 @@
-# Multi-party Updatable Delegated Private Set Intersection
+# Multi-party Updatable Delegated Private Set Union
 
-With the growth of cloud computing, the need arises for Pri- vate Set Intersection protocols (PSI) that can let parties outsource the storage of their private sets and securely delegate PSI computation to a cloud server. The existing delegated PSIs have two major limitations; namely, they cannot support (1) efficient updates on outsourced sets and (2) efficient PSI among multiple clients. This paper presents “Feather”, the first lightweight delegated PSI that addresses both limitations simul- taneously. It lets clients independently prepare and upload their private sets to the cloud once, then delegate the computation an unlimited num- ber of times. We implemented Feather and compared its costs with the state of the art delegated PSIs. The evaluation indicates that Feather is more efficient in both update and PSI computation phases.

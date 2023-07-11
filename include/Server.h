@@ -19,7 +19,9 @@
 */
 //*********************************************************************
 
-#include"Polynomial.h"
+#ifndef _SERVER_
+#define _SERVER_
+#include "Polynomial.h"
 
 //*********************************************************************
 // - Description: a request message for PSI computation. It is sent from the result recipient client to the authorizer client.
@@ -37,7 +39,7 @@ struct CompPerm_Request{
 
 struct GrantComp_Info{
 
-	string* id;// the result reciepent id is in id[0].
+	string* id;// the result recipent id is in id[0].
 	byte seed[AES::DEFAULT_KEYLENGTH];
 	byte iv[AES::BLOCKSIZE];
 	bigint** pm; // permutation map
@@ -68,6 +70,7 @@ class Server{
 public:
 	Server(int num_xpoints, int dbs_size, int pu_mod_bitsize, int maxSetsize, int NoEl_bucket, int tb_size);
 	Server_Result * compute_result (GrantComp_Info** grantComp_info, byte* tmp_key_, byte *tmp_iv_);
+	Server_Result * psu_compute_result (GrantComp_Info** grantComp_info, byte* tmp_key_, byte *tmp_iv_);
 	bigint* get_xpoints(int& size);
 	bigint* get_pubModuli();
 	bigint* get_client_bin(bigint label, string ID, bigint& bf, int& indx, bool& exists, string operation);
@@ -94,3 +97,5 @@ private:
 
 };
 //**********************************************************************
+
+#endif

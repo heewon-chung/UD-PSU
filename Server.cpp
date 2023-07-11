@@ -8,7 +8,13 @@
 
 //*********************************************************************
 // - Description: Constructor- It generates a set of x-coordinates and public moduli. Also, it sets a hash table parameters.
-Server::Server(int num_xpoints, int dbs_size, int pub_mod_bitsize, int maxSetsize, int NoEl_bucket, int tb_size){
+Server::Server(int num_xpoints, 		/// n
+			   int dbs_size, 			/// m+1 -- # of clients
+			   int pub_mod_bitsize, 
+			   int maxSetsize, 			/// c
+			   int NoEl_bucket, 		/// d
+			   int tb_size)				/// h
+{
 
 	max_setsize = maxSetsize;
 	NoElem_in_bucket = NoEl_bucket;
@@ -74,7 +80,9 @@ void Server::free_server(){
 }
 //**********************************************************************
 // - Function description: returns x_coordinates.
-bigint* Server::get_xpoints(int& size){
+bigint* 
+Server::get_xpoints(int& size)
+{
 
 	size = xpoint_size;
 	bigint *ptr = xpoints;
@@ -138,11 +146,14 @@ void Server::store_poly(Client_Dataset& p){
 }
 //**********************************************************************
 //Function description: computes the result, given all clients messages and their outsourced data.
-Server_Result * Server::compute_result (GrantComp_Info** grantComp_info, byte* tmp_key_, byte *tmp_iv_){
-
+Server_Result* 
+Server::compute_result(GrantComp_Info** grantComp_info, 
+					   byte* tmp_key_, 
+					   byte *tmp_iv_)
+{
 	bigint  *o_A, *o_B, *temp_o_B, buf_1, buf_2;
 	bigint  *Sw1, *Sw2, **q, **bl, **s_bl, *temp_1, *temp_2;
-	string operation= "PSI_computation";
+	string operation = "PSI_computation";
 	Random rd_;
  	int byte_ = (pub_moduli_bitsize)/8;
  	bigint**tmp_bl_1, tmp_bf_A, tmp_bf_B;
@@ -155,110 +166,135 @@ Server_Result * Server::compute_result (GrantComp_Info** grantComp_info, byte* t
  	mpz_init(buf_2);
 	bool exists;
 	bigint temp_mul;
- 	mpz_init(temp_mul);
- 	unsigned char der_key_0[key_size];
- 	unsigned char der_key_1[key_size];
- 	unsigned char der_key_2[key_size];
- 	CBC_Mode< AES >::Encryption e;
- 	string cipher;
- 	ptr->BF=(mpz_t*)malloc(table_size * sizeof(mpz_t));
+	mpz_init(temp_mul);
+	unsigned char der_key_0[key_size];
+	unsigned char der_key_1[key_size];
+	unsigned char der_key_2[key_size];
+	CBC_Mode< AES >::Encryption e;
+	string cipher;
+
+ 	ptr->BF=(mpz_t*)malloc(table_size * sizeof(mpz_t));	/// bloom filter 생성
  	int indx_A,indx_B;
-	for (int t = 0; t < db_size - 1; t++){//db_size : number of clients
-		for(int i = 0;i < table_size; i++){
+	
+	for (int t = 0; t < db_size - 1; t++) { //db_size : number of clients
+		for (int i = 0; i < table_size; i++) {
 			e.SetKeyWithIV(grantComp_info[t]->seed, key_size, grantComp_info[t]->iv);
 			cipher.clear();
 			StringSource s(to_string(i), true, new StreamTransformationFilter(e, new StringSink(cipher)));//encrypt i
 			unsigned char der_key[key_size]; // convert the ciphertext into a der_key
-			memset(der_key, 0x00, key_size+1);
+			// memset(der_key, 0x00, key_size+1);
 			strcpy((char*)der_key, cipher.c_str());
 			e.SetKeyWithIV(der_key, key_size, grantComp_info[t]->iv);	// set key an iv.
-			for(int j = 0; j < 3; j++){
-			cipher.clear();
-			StringSource s(to_string(j), true, new StreamTransformationFilter(e, new StringSink(cipher)));
-			if(j == 0){
-				memset(der_key_0, 0x00, key_size+1);
-				strcpy((char*)der_key_0, cipher.c_str());}
-				else if(j == 1){
+			for (int j = 0; j < 3; j++) {
+				cipher.clear();
+				StringSource s(to_string(j), true, new StreamTransformationFilter(e, new StringSink(cipher)));
+				if (j == 0) {
+					memset(der_key_0, 0x00, key_size+1);
+					strcpy((char*)der_key_0, cipher.c_str());
+				}
+				else if (j == 1) {
 					memset(der_key_1, 0x00, key_size+1);
 					strcpy((char*)der_key_1, cipher.c_str());}
-					else if(j == 2){
-						memset(der_key_2, 0x00, key_size+1);
-						strcpy((char*)der_key_2, cipher.c_str());
-					}
-				}
-				Sw1 = rd_.gen_PRNs_(der_key_1, grantComp_info[t]->iv, key_size, NoElem_in_bucket + 1, byte_, table_size);
-				Sw2 = rd_.gen_PRNs_(der_key_2, grantComp_info[t]->iv, key_size, NoElem_in_bucket + 1, byte_, table_size);
-				Polynomial pol_1, pol_2;
-				w_A_[i] = pol_1.evaluate_coeffs(Sw1, xpoints, NoElem_in_bucket + 1, xpoint_size, pu_moduli[0]); // evaluates the random coefficients in Sw1 at x-coordinates.
-				w_B_[i] = pol_2.evaluate_coeffs(Sw2, xpoints, NoElem_in_bucket + 1, xpoint_size, pu_moduli[0]); // evaluates the random coefficients in Sw2 at x-coordinates.
-				for(int q = 0; q < xpoint_size; q++){
-					temp_1 = rd_.gen_PRN_(der_key_0, grantComp_info[t]->iv, key_size, q, byte_, table_size);
-					mpz_mod(temp_1[0], temp_1[0], pu_moduli[0] );
-					mpz_init_set(a[i][q],temp_1[0]);
+				else if (j == 2) {
+					memset(der_key_2, 0x00, key_size+1);
+					strcpy((char*)der_key_2, cipher.c_str());
 				}
 			}
-			for(int i = 0; i < table_size; i++){
-				o_A = get_client_bin(grantComp_info[t]->pm[i][0], grantComp_info[t]->id[1], tmp_bf_A, indx_A, exists, "PSI_computation");
-				if (t==db_size-2){
-					o_B = get_client_bin(grantComp_info[t]->pm[i][1], grantComp_info[t]->id[0], tmp_bf_B, indx_B, exists, "PSI_computation");
-					mpz_init_set(temp_BFs[indx_B], tmp_bf_B);
-					mpz_clear(tmp_bf_B);
+			Sw1 = rd_.gen_PRNs_(der_key_1, grantComp_info[t]->iv, key_size, NoElem_in_bucket + 1, byte_, table_size);
+			Sw2 = rd_.gen_PRNs_(der_key_2, grantComp_info[t]->iv, key_size, NoElem_in_bucket + 1, byte_, table_size);
+			Polynomial pol_1, pol_2;
+
+			w_A_[i] = pol_1.evaluate_coeffs(Sw1, xpoints, NoElem_in_bucket + 1, xpoint_size, pu_moduli[0]); // evaluates the random coefficients in Sw1 at x-coordinates.
+			w_B_[i] = pol_2.evaluate_coeffs(Sw2, xpoints, NoElem_in_bucket + 1, xpoint_size, pu_moduli[0]); // evaluates the random coefficients in Sw2 at x-coordinates.
+			
+			for (int q = 0; q < xpoint_size; q++) {
+				temp_1 = rd_.gen_PRN_(der_key_0, grantComp_info[t]->iv, key_size, q, byte_, table_size);
+				mpz_mod(temp_1[0], temp_1[0], pu_moduli[0] );
+				mpz_init_set(a[i][q],temp_1[0]);
+			}
+		}
+
+		for (int i = 0; i < table_size; i++) {
+			o_A = get_client_bin(grantComp_info[t]->pm[i][0], grantComp_info[t]->id[1], tmp_bf_A, indx_A, exists, "PSI_computation");
+			if (t == db_size-2) { /// 1번만 실행 => A_0
+				o_B = get_client_bin(grantComp_info[t]->pm[i][1], grantComp_info[t]->id[0], tmp_bf_B, indx_B, exists, "PSI_computation");
+				mpz_init_set(temp_BFs[indx_B], tmp_bf_B);
+				mpz_clear(tmp_bf_B);
+#ifdef _DEBUG				
+				std::cout << "compute_result: tmp_bf_B" << std::endl;
+				std::cout << "temp_BFs[" << indx_B << "]=" << temp_BFs[indx_B] << std::endl;
+#endif
+			}
+			else {
+				indx_B = get_client_bin_indx(grantComp_info[t]->pm[i][1], grantComp_info[t]->id[0], exists);
+			}
+
+			// given the map,  pseudorandom values, and clients' datasets, it computes the final result.
+			for (int j = 0; j < xpoint_size; j++) {
+				if (t == 0) {
+					mpz_init(temp_w_A[indx_B][j]);
+					mpz_init(temp_w_B[indx_B][j]);
+					mpz_init(sum_a[indx_B][j]);
 				}
-				else{
-					indx_B = get_client_bin_indx(grantComp_info[t]->pm[i][1], grantComp_info[t]->id[0], exists);
-				}
-				// given the map,  pseudorandom values, and clients' datasets, it computes the final result.
-				for(int j = 0; j < xpoint_size; j++){
-					if(t==0){
-						mpz_init(temp_w_A[indx_B][j]);
-						mpz_init(temp_w_B[indx_B][j]);
-						mpz_init(sum_a[indx_B][j]);
-					}
-					mpz_mul(temp_mul, w_A_[indx_A][j], o_A[j]);
-					mpz_add(temp_w_A[indx_B][j], temp_w_A[indx_B][j], temp_mul);
-					mpz_add(temp_w_B[indx_B][j], temp_w_B[indx_B][j], w_B_[indx_B][j]);
-					mpz_add(sum_a[indx_B][j], sum_a[indx_B][j], a[indx_A][j]);
-					mpz_mod(sum_a[indx_B][j], sum_a[indx_B][j], pu_moduli[0]);
-					if (t==db_size-2){
-						mpz_add(buf_2, o_B[j], tmp_bl_1[indx_B][j]);
-						mpz_mod(buf_2, buf_2, pu_moduli[0]);
-						mpz_mul(buf_2, temp_w_B[indx_B][j], buf_2);
-						mpz_mod(buf_2, buf_2, pu_moduli[0]);
-						mpz_add(buf_2, temp_w_A[indx_B][j], buf_2);
-						mpz_add(ptr->result [indx_B][j], sum_a[indx_B][j], buf_2);
-						mpz_mod(ptr->result [indx_B][j], ptr->result [indx_B][j], pu_moduli[0]);
-						mpz_clear(w_B_[indx_B][j]);
-						mpz_clear(w_A_[indx_A][j]);
-						mpz_clear(tmp_bl_1[indx_B][j]);
-					}
+				mpz_mul(temp_mul, w_A_[indx_A][j], o_A[j]);
+				mpz_add(temp_w_A[indx_B][j], temp_w_A[indx_B][j], temp_mul);
+				mpz_add(temp_w_B[indx_B][j], temp_w_B[indx_B][j], w_B_[indx_B][j]);
+				mpz_add(sum_a[indx_B][j], sum_a[indx_B][j], a[indx_A][j]);
+				mpz_mod(sum_a[indx_B][j], sum_a[indx_B][j], pu_moduli[0]);
+				if (t == db_size - 2) {
+					mpz_add(buf_2, o_B[j], tmp_bl_1[indx_B][j]);
+					mpz_mod(buf_2, buf_2, pu_moduli[0]);
+					mpz_mul(buf_2, temp_w_B[indx_B][j], buf_2);
+					mpz_mod(buf_2, buf_2, pu_moduli[0]);
+					mpz_add(buf_2, temp_w_A[indx_B][j], buf_2);
+					mpz_add(ptr->result [indx_B][j], sum_a[indx_B][j], buf_2);
+					mpz_mod(ptr->result [indx_B][j], ptr->result [indx_B][j], pu_moduli[0]);
+					mpz_clear(w_B_[indx_B][j]);
+					mpz_clear(w_A_[indx_A][j]);
+					mpz_clear(tmp_bl_1[indx_B][j]);
 				}
 			}
 		}
-		ptr->BF = temp_BFs;
-		free(tmp_bl_1);
-		mpz_clear(buf_1);
-		mpz_clear(buf_2);
-		return ptr;
 	}
+	ptr->BF = temp_BFs;
+
+#ifdef _DEBUG
+	std::cout << "===compute_result: Bloom filter===" << std::endl;
+	// for (int i = 0; i < table_size; i++) {
+	std::cout << "ptr->BF[0]=" << ptr->BF[0] << ", ";
+	// }
+	std::cout << std::endl;
+#endif
+	free(tmp_bl_1);
+	mpz_clear(buf_1);
+	mpz_clear(buf_2);
+
+	return ptr;
+}
+
+
 //**********************************************************************
 // - Function description: given client's ID, it finds the client's dataset index at the server-side.
- int Server::find_db_index(string id){
+int 
+Server::find_db_index(string id)
+{
+	int i;
+	string s;
+	int temp = db_size;
+	bool found = false;
 
-	 int i;
-	 string s;
-	 int temp = db_size;
-	 bool found = false;
-	 for(i = 0; i < temp; i++){ // in the server-side database containing  different clients datasets, find the clinet's index in there.
-		 if(db[i].client_ID == id){
-			 found=true;
-			 return i;
-			 break;
-			 }
-	 }
-	 if(!found){
-		 cout<<"There is exist no poly. in server with ID:"<<id<<endl;
-		 return i = 1000000;// the value only is used to indicate NULL
-	 }
+	for (i = 0; i < temp; i++) { // in the server-side database containing  different clients datasets, find the clinet's index in there.
+		if (db[i].client_ID == id) {
+			found = true;
+			break;
+		}
+	}
+	if (!found) {
+		cout << "There is exist no poly. in server with ID:" << id << endl;
+		return i = 1000000;// the value only is used to indicate NULL
+	}
+
+	return i;
 }
 //**********************************************************************
 // - Function description: given client's update query, it applies the update to the client's dataset at the server-side
@@ -293,37 +329,44 @@ void Server::update_client_bin(bigint* vals, bigint label, string id, bigint bbf
 }
 //**********************************************************************
 // - Function description: given a client's label, it returns the corresponding bin tagged with the label.
-bigint* Server::get_client_bin(bigint label, string id, bigint& bf, int& indx, bool& exists, string operation){
-
+bigint* 
+Server::get_client_bin(bigint label, 			/// permutation map
+					   string id, 				
+					   bigint& bf, 				/// bloom filter
+					   int& indx, 				/// A_i's DB index <== returned
+					   bool& exists, 			/// DB index의 존재 유무 <== returned
+					   string operation)  		/// Compute or Update
+{
 	int j = -1;
 	bigint *res;
 	res = (mpz_t*)malloc(xpoint_size * sizeof(mpz_t));
 	int index = find_db_index(id); // finds the position in which the client's dataset is stored in the array of clients' datasets.
 	string s_val = mpz_get_str(NULL, 10, label);
 	int val_ = db[index].label_Index_map[s_val];
-	if(val_!= 0){
-		 // finds the client's bin tagged with the label.
-		 if (val_ == 1000001){
-			 j = 0;
-		 }
-		 else{
-			 j = val_;
-		 }
-		 exists = true;
-	 }
-	 if(j == -1) {
-		 cout<<"\n InServer-get_client_bin-- The label for client ID: "<<id <<" does not exist!"<<endl;
-		 return 0;
-	 }
-	 else{
-		 res = db[index].poly[j].get_values();
-		 if(id == "B_ID" || operation == "update"){
-			 mpz_init_set(bf, db[index].BF[j]);
-		 }
-		 indx = j;
-		 return res;
-	 }
+
+	if (val_!= 0) {
+		// finds the client's bin tagged with the label.
+		if (val_ == 1000001){
+			j = 0;
+		}
+		else {
+			j = val_;
+		}
+		exists = true;
+	}
+	if (j == -1) {
+		cout << "\n InServer-get_client_bin-- The label for client ID: " << id << " does not exist!" << endl;
+		return 0;
+	}
+	res = db[index].poly[j].get_values();
+	if (id == "B_ID" || operation == "update") {
+		mpz_init_set(bf, db[index].BF[j]);
+	}
+	indx = j;
+
+	return res;
  }
+
 //**********************************************************************
 int Server::get_client_bin_indx(bigint label, string id, bool& exists){
 

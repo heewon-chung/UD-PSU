@@ -30,20 +30,30 @@
   bf_parameters: parameters of bloom filters.
 */
 //*********************************************************************
+#ifndef _CLIENT_
+#define _CLIENT_
+
+#include <iomanip>
+#include <cstdio>
+#include <cstring>
+#include <omp.h>
+
 #include "Server.h"
+#include "util.h"
 
 //**********************************************************************
 
-class Client{
-
+class Client {
 public:
 	Client();
 	Client (Server* serv, bigint *, int elem_size);
 	void free_client();
 	GrantComp_Info * grant_comp(CompPerm_Request* , bigint **&qq, bool);
 	vector <string> find_intersection(Server_Result* res, int*& size, bigint*** Q, int number_of_clients);
+	vector <string> find_union(Server_Result* res, int*& size, bigint*** Q, int number_of_clients, int max_bucket_size);
 	void outsource_db(string & poly_ID);
 	string update(bigint elem, string delete_insert, bigint & label, string id);
+	string new_update(bigint elem, string delete_insert, bigint & label, string id);
 	CompPerm_Request * gen_compPerm_req(byte (& tmp_key_)[AES::DEFAULT_KEYLENGTH], byte (& tmp_iv_)[AES::BLOCKSIZE]);
 
 private:
@@ -62,7 +72,7 @@ private:
 	bigint* blind_BF(bigint BF, int  indx, bigint BFkey, bigint BF_counterkey, int bit_size, bigint pr_moduli);
 	bigint*	unblind_BF(bigint blinded_BF, int indx , bigint BFkey, bigint BF_ck, int bit_size, bigint pr_moduli);
   	bigint* check_vals_in_BF(bigint* vals, int val_size, bigint bf, bloom_parameters parameters, int &counter);
-	bigint* assing_BFs2HT(Hashtable HT, int NoElem_in_bucket, int table_size, bloom_parameters parameters);
+	bigint* assign_BFs2HT(Hashtable HT, int NoElem_in_bucket, int table_size, bloom_parameters parameters);
 	bigint* gen_labels (int num, bigint seed);
 	bigint* PR_shuffle(bigint* elem, int size, bigint seed);
 	bigint* convert_BF_to_bigint(bloom_filter filter);
@@ -95,3 +105,5 @@ private:
   	byte label_iv[AES::BLOCKSIZE];
 	unordered_map <string, int> xPoint_map;
 };
+
+#endif

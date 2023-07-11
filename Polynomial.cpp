@@ -4,7 +4,11 @@
 
 */
 
-#include"Polynomial.h"
+#include "Polynomial.h"
+
+#define PSU
+
+
 //*********************************************************************
 // - Description: Constrcutor- given an array of elements and x-coordinates constructs a polynomial in the point-value form, i.e. calculates y-coordinates.
 Polynomial::Polynomial(bigint* elem, bigint * xpoints, int elem_size, int xpoints_size, bigint pubmoduli, int pubmoduli_size, unordered_map <string, int> map){
@@ -28,9 +32,16 @@ Polynomial::Polynomial(bigint* elem, bigint * xpoints, int elem_size, int xpoint
 			}
 		}
 		// computes y-coordibates by evaluating the polynomial of the form (x-elem[0])...(x-elem[elem_size-1]) at every x-coordinate.
-		values = evaluate (elem_temp, xpoints, elem_size, xpoints_size, pubmoduli);
+		// values = evaluate (elem, xpoints, elem_size, xpoints_size, pubmoduli);
+#ifdef PSU
+		values = evaluate_psu (elem, xpoints, elem_size, xpoints_size, pubmoduli);
+#else
+		values = evaluate (elem, xpoints, elem_size, xpoints_size, pubmoduli);
+#endif
+		// psu_values = NULL;
 	}
 }
+
 //**********************************************************************
 // - Function description: given an array of roots of a polynomial and array of x-coordinates, it evaluates
 // the polynomial at each x-coordinate and returns an array of y-coordinates.
@@ -44,16 +55,52 @@ bigint* Polynomial::evaluate(bigint* elem, bigint* xp, int ele_size, int xp_size
 		mpz_init(val[i]);
 		mpz_init_set(mult2, one);
 		for (int j = 0; j < ele_size; j++){ //ele_size: # of elements in a bucket
-			mpz_sub(temp, xp[i], elem[j]);
-			mpz_mul(mult2, mult2, temp);
-			mpz_mod(mult2, mult2, pubmod);
-			mpz_set(val[i], mult2);
+			mpz_sub(temp, xp[i], elem[j]); 			// temp = x_i - e_i
+			mpz_mul(mult2, mult2, temp);			// mult2 = mult2 * temp (mod p)
+			mpz_mod(mult2, mult2, pubmod);			
+			mpz_set(val[i], mult2);					// val_i = mult2
 		}
 	}
 	mpz_clear(mult2);
 	mpz_clear(temp);
 	mpz_clear(one);
 	return val;
+}
+
+bigint* Polynomial::evaluate_psu(bigint* elem, bigint* xp, int ele_size, int xp_size, bigint pubmod){
+
+	bigint *val;
+	val = (mpz_t*)malloc(xp_size * sizeof(mpz_t));
+	memset(val, 0, xp_size * sizeof(mpz_t));
+
+	vec_ZZ_p elements;
+	for(int i = 0; i < ele_size; i++)
+	{
+		ZZ_p temp; mpz_to_zz(elem[i], temp);
+		elements.append(temp);
+	}
+
+	ZZ_pX one, root_poly, rns;
+	SetCoeff(one, 0, 1);
+
+	BuildFromRoots(root_poly, elements);
+
+	rational_to_RLS(one, root_poly, rns);
+
+	for(int i = 0; i < xp_size; i++)
+	{
+		ZZ_p point; mpz_to_zz(xp[i], point);
+		ZZ_p value = eval(rns, point);
+		zz_to_mpz(value, val[i]);
+	}
+
+	return val;
+	
+}
+
+void Polynomial::set_values(bigint vals, int size)
+{
+	mpz_set(values[size], vals);
 }
 //**********************************************************************
 // - Function description: given an array of y-coordinates, it blinds them using fresh pseudorandom values.
@@ -106,6 +153,7 @@ bigint* Polynomial::blind_poly_(bigint* y_coordinates, int val_size_, byte *key,
 	free(ptr);
 	return res_;
 }
+
 //**********************************************************************
 // - Function description: blindes a polynomial, by fetching y-coordinates, and masking them with fresh PR values. It replaces the
 // y-ccordinates with the blinded values.
@@ -156,6 +204,8 @@ void Polynomial::blind_poly_(byte *key, byte* iv, int key_size, int indx, int co
 	free(ptr);
 	values = res_;
 }
+
+
 //**********************************************************************
 // - Function description: given an array of blinded y-coordinates, it unblindes them and returns the y-coordinates.
 bigint* Polynomial::unblind_poly_(bigint* blinded_vals, int num_of_vals, byte* key, byte* iv, int key_size, int indx, int counter_indx, int byte_, bigint pubmod){
@@ -301,3 +351,5 @@ bigint* Polynomial::interpolate(int size, bigint* a, bigint* b, bigint N){
 	return res;
 }
 //**********************************************************************
+
+
